@@ -1,0 +1,14 @@
+{
+  "name": "orchestra-marketplace",
+  "description": "Personal marketplace: tiered Opus/Sonnet/Haiku orchestration",
+  "owner": {
+    "name": "Davide"
+  },
+  "plugins": [
+    {
+      "name": "orchestra",
+      "source": "./plugins/orchestra",
+      "description": "Opus 5.5 plans and verifies, Sonnet 5.5 and Haiku 5.5 workers execute. Run /orchestra:run <task>."
+    }
+  ]
+}

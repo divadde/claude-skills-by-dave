@@ -1,0 +1,8 @@
+{
+  "name": "orchestra",
+  "description": "Opus 5.5 plans, delegates and verifies; Sonnet 5.5 and Haiku 5.5 workers execute. Run /orchestra:run <task>.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Davide"
+  }
+}
