@@ -1,14 +1,14 @@
 # claude-skills-by-dave
 
-Marketplace personale di plugin per Claude Code. Ogni plugin sta in `plugins/<nome>/` ed è elencato in `.claude-plugin/marketplace.json`.
+Personal marketplace of Claude Code plugins. Each plugin lives in `plugins/<name>/` and is listed in `.claude-plugin/marketplace.json`.
 
-## Plugin disponibili
+## Available plugins
 
-| Plugin | Cosa fa | Comando |
+| Plugin | What it does | Command |
 |---|---|---|
-| [`orchestra`](plugins/orchestra) | Opus 5.5 pianifica, delega e verifica; Sonnet 5.5 e Haiku 5.5 eseguono il lavoro pesante | `/orchestra:run <task>` |
+| [`orchestra`](plugins/orchestra) | Opus 5.5 plans, delegates and verifies; Sonnet 5.5 and Haiku 5.5 workers do the heavy lifting | `/orchestra:run <task>` |
 
-## Installazione
+## Installation
 
 In Claude Code:
 
@@ -18,68 +18,68 @@ In Claude Code:
 /reload-plugins
 ```
 
-Aggiornamento dopo nuovi push: `/plugin marketplace update orchestra-marketplace`.
+To pick up new pushes later: `/plugin marketplace update orchestra-marketplace`.
 
-Prova senza installare, da un clone locale del repo: `claude --plugin-dir ./plugins/orchestra`.
+Try it without installing, from a local clone of this repo: `claude --plugin-dir ./plugins/orchestra`.
 
-Requisiti:
-- Claude Code aggiornato (`claude update`).
-- Accesso ai modelli Opus 5.5, Sonnet 5.5 e Haiku 5.5 sull'API Anthropic. Gli ID completi (`claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`) sono scritti nei file del plugin; su Bedrock o Vertex vanno sostituiti con gli ID del provider o con gli alias `opus`, `sonnet`, `haiku`.
+Requirements:
+- An up-to-date Claude Code (`claude update`).
+- Access to Opus 5.5, Sonnet 5.5 and Haiku 5.5 on the Anthropic API. The full model IDs (`claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`) are hardcoded in the plugin files; on Bedrock or Vertex, replace them with the provider's IDs or with the aliases `opus`, `sonnet`, `haiku`.
 
-## Uso: orchestra
+## Usage: orchestra
 
-Avvia la sessione su Opus, così resta Opus per tutta la conversazione:
+Start the session on Opus so it stays on Opus for the whole conversation:
 
 ```
 claude --model claude-opus-5-5
 ```
 
-Poi, dentro la sessione:
+Then, inside the session:
 
 ```
-/orchestra:run migra i test in tests/ da unittest a pytest e verifica che la suite passi
+/orchestra:run migrate the tests in tests/ from unittest to pytest and make sure the suite passes
 ```
 
-La skill è solo manuale (`disable-model-invocation`): parte solo quando la invochi tu.
+The skill is manual-only (`disable-model-invocation`): it runs only when you invoke it.
 
-## Cosa fa orchestra
+## What orchestra does
 
-L'orchestratore (Opus) tiene il giudizio, i worker economici fanno il volume. Il flusso:
+The orchestrator (Opus) keeps the judgement; cheaper workers do the volume. The flow:
 
-1. **Preflight.** Verifica di essere su Opus e che `CLAUDE_CODE_SUBAGENT_MODEL` non sia impostata (altrimenti può sovrascrivere i modelli dei worker).
-2. **Piano.** Spezza il task in unità, ciascuna con obiettivo, file in input, output atteso, controllo di accettazione e tier. Se il task è piccolo (circa tre chiamate di tool o meno) lo fa da solo.
-3. **Routing.** Assegna ogni unità a un tier:
+1. **Preflight.** Checks that it is running on Opus and that `CLAUDE_CODE_SUBAGENT_MODEL` is unset (otherwise it can override the workers' models).
+2. **Plan.** Splits the task into units, each with a goal, input files, expected output, an acceptance check and a tier. If the task is small (roughly three tool calls or fewer) it just does it itself.
+3. **Routing.** Assigns each unit to a tier:
 
-   | Tier | Cosa gli va |
+   | Tier | What goes there |
    |---|---|
-   | Opus (orchestratore) | requisiti ambigui, decisioni di design, bug non ovvi, modifiche sensibili, integrazione e revisione finale |
-   | `orchestra:worker-sonnet` | implementazione ben specificata, refactor con test, scrittura test, lettura e sintesi di codice o documenti, ricerca web circoscritta, esplorazione read-only |
-   | `orchestra:worker-haiku` | solo lavoro meccanico e verificabile: rinomine, conversioni di formato, boilerplate da template, lista esplicita di modifiche, find-and-replace controllabile con grep |
+   | Opus (orchestrator) | ambiguous requirements, design decisions, non-obvious bugs, security-sensitive changes, final integration and review |
+   | `orchestra:worker-sonnet` | well-specified implementation, refactors with tests, writing tests, reading and summarising code or documents, bounded web research, read-only exploration |
+   | `orchestra:worker-haiku` | mechanical, verifiable work only: renames, format conversions, boilerplate from a template, an explicit list of edits, find-and-replace you can check with grep |
 
-   Haiku non fa mai ricerca aperta (i suoi errori sono silenziosi) né scelte di giudizio.
-4. **Delega.** Ogni worker riceve un brief strutturato (obiettivo, contesto come percorsi, cosa fare, cosa non toccare, controllo di accettazione, formato di ritorno). Le unità indipendenti partono in parallelo, su insiemi di file disgiunti.
-5. **Verifica.** Non basta il "DONE" del worker: l'orchestratore esegue il controllo di accettazione o ispeziona il diff. Se fallisce, ridelega una volta con l'evidenza, poi prende in carico l'unità. Scala Haiku → Sonnet → Opus.
-6. **Report.** Al massimo 10 righe: cosa è stato fatto, come è stato verificato, cosa resta aperto, più la ripartizione (per esempio `units: 2 haiku, 3 sonnet, 1 self`).
+   Haiku never does open-ended search (its misses are silent) or judgement calls.
+4. **Delegate.** Each worker gets a structured brief (goal, context as paths, what to do, what not to touch, acceptance check, return format). Independent units run in parallel on disjoint sets of files.
+5. **Verify.** A worker's "DONE" is not enough: the orchestrator runs the acceptance check or inspects the diff. On failure it re-delegates once with the evidence, then takes the unit over. Escalation goes Haiku → Sonnet → Opus.
+6. **Report.** At most 10 lines: what was done, how it was verified, what is still open, plus the split (for example `units: 2 haiku, 3 sonnet, 1 self`).
 
-Il risparmio viene dallo spostare il volume di token sui tier più economici: l'orchestratore genera pochi token, i worker la maggior parte. Quanto si risparmia dipende da quanto del task è delegabile.
+The savings come from moving token volume to the cheaper tiers: the orchestrator generates few tokens, the workers most of them. How much you save depends on how much of the task is delegable.
 
-## Limiti noti
+## Known limitations
 
-- `CLAUDE_CODE_SUBAGENT_MODEL`: se impostata può sovrascrivere il routing per-agent. Controlla con `echo "${CLAUDE_CODE_SUBAGENT_MODEL:-unset}"`.
-- Gli agent built-in Explore e general-purpose ereditano il modello principale (Opus): la skill istruisce l'orchestratore a non usarli per il lavoro pesante.
-- Il campo `model` nel frontmatter della skill vale per l'esecuzione della skill; per tenere Opus su tutta la sessione usa `claude --model claude-opus-5-5` o `/model claude-opus-5-5`.
-- I worker non possono lanciare altri agent.
-- Per vedere quale modello ha usato davvero un worker: `/tasks` mentre è attivo.
-- Se gli agent del plugin non vengono trovati, la skill ripiega su `general-purpose` con `model` esplicito e lo segnala.
+- `CLAUDE_CODE_SUBAGENT_MODEL`: if set, it can override per-agent routing. Check with `echo "${CLAUDE_CODE_SUBAGENT_MODEL:-unset}"`.
+- The built-in Explore and general-purpose agents inherit the main model (Opus): the skill tells the orchestrator not to use them for heavy work.
+- The `model` field in the skill's frontmatter applies while the skill runs; to keep Opus for the whole session use `claude --model claude-opus-5-5` or `/model claude-opus-5-5`.
+- Workers cannot spawn other agents.
+- To see which model a worker actually used, run `/tasks` while it is active.
+- If the plugin's agents are not found, the skill falls back to `general-purpose` with an explicit `model` and reports it.
 
-Dettagli aggiuntivi nel [README del plugin](plugins/orchestra/README.md), scritto in inglese.
+More details in the [plugin README](plugins/orchestra/README.md).
 
-## Struttura del repo
+## Repository layout
 
 ```
 claude-skills-by-dave/
 ├── .claude-plugin/
-│   └── marketplace.json        # catalogo: una voce per plugin
+│   └── marketplace.json        # catalogue: one entry per plugin
 ├── README.md
 └── plugins/
     └── orchestra/
@@ -90,11 +90,11 @@ claude-skills-by-dave/
         └── README.md
 ```
 
-## Aggiungere un nuovo plugin
+## Adding a new plugin
 
-1. Crea `plugins/<nome>/.claude-plugin/plugin.json` e, a seconda del bisogno, `skills/<skill>/SKILL.md`, `agents/*.md`, `commands/*.md`. Le cartelle dei componenti stanno alla radice del plugin, non dentro `.claude-plugin/`.
-2. Aggiungi una voce in `.claude-plugin/marketplace.json` con `"source": "./plugins/<nome>"`.
-3. Valida: `claude plugin validate .` e `claude plugin validate ./plugins/<nome>`.
-4. Commit e push, poi `/plugin marketplace update orchestra-marketplace` e `/plugin install <nome>@orchestra-marketplace`.
+1. Create `plugins/<name>/.claude-plugin/plugin.json` and, as needed, `skills/<skill>/SKILL.md`, `agents/*.md`, `commands/*.md`. Component folders go at the plugin root, not inside `.claude-plugin/`.
+2. Add an entry to `.claude-plugin/marketplace.json` with `"source": "./plugins/<name>"`.
+3. Validate: `claude plugin validate .` and `claude plugin validate ./plugins/<name>`.
+4. Commit and push, then `/plugin marketplace update orchestra-marketplace` and `/plugin install <name>@orchestra-marketplace`.
 
-Le skill di un plugin si chiamano `/<plugin>:<cartella>`, quindi non collidono con quelle di altri plugin né con le skill personali.
+A plugin's skills are named `/<plugin>:<folder>`, so they do not collide with other plugins' skills or with personal skills.
